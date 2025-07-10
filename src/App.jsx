@@ -1,103 +1,78 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-import "./App.css";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useState, createContext, useContext } from 'react';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import INRRates from './pages/INRRates';
+import Historical from './pages/Historical';
+import Favorites from './pages/Favorites';
+import './App.css';
+
+// Create context for global state
+const AppContext = createContext();
+
+export const useAppContext = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useAppContext must be used within AppProvider');
+  }
+  return context;
+};
 
 function App() {
-  const [amount, setAmount] = useState(1);
-  const [fromCurrency, setFromCurrency] = useState("USD");
-  const [toCurrency, setToCurrency] = useState("INR");
-  const [convertedAmount, setconvertedAmount] = useState(null);
-  const [exchangeRate, setExchangeRate] = useState(null);
-  useEffect(() => {
-    const getExchangeRate = async () => {
-      try {
-        let url = `https://api.exchangerate-api.com/v4/latest/${fromCurrency}`;
-        const res = await axios.get(url);
-        //console.log(res);
-        setExchangeRate(res.data.rates[toCurrency]);
-      } catch (error) {
-        console.error("Error fetching exchange rate:", error);
-      }
-    };
-    getExchangeRate();
-  }, [fromCurrency, toCurrency]);
-  useEffect(() => {
-    if (exchangeRate !== null) {
-      setconvertedAmount((amount * exchangeRate).toFixed(2));
-    }
-  }, [amount, exchangeRate]);
+  const [favorites, setFavorites] = useState(() => {
+    const saved = localStorage.getItem('currency-favorites');
+    return saved ? JSON.parse(saved) : ['USD', 'EUR', 'GBP', 'JPY'];
+  });
 
-  const handleAmountChange = (e) => {
-    const value = parseFloat(e.target.value);
-    setAmount(isNaN(value) ? 0 : value);
+  const [recentConversions, setRecentConversions] = useState(() => {
+    const saved = localStorage.getItem('recent-conversions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const addToFavorites = (currency) => {
+    if (!favorites.includes(currency)) {
+      const newFavorites = [...favorites, currency];
+      setFavorites(newFavorites);
+      localStorage.setItem('currency-favorites', JSON.stringify(newFavorites));
+    }
   };
-  const handleFromCurrencyChange = (e) => {
-    setFromCurrency(e.target.value);
+
+  const removeFromFavorites = (currency) => {
+    const newFavorites = favorites.filter(fav => fav !== currency);
+    setFavorites(newFavorites);
+    localStorage.setItem('currency-favorites', JSON.stringify(newFavorites));
   };
-  const handleToCurrencyChange = (e) => {
-    setToCurrency(e.target.value);
+
+  const addRecentConversion = (conversion) => {
+    const newRecent = [conversion, ...recentConversions.slice(0, 9)];
+    setRecentConversions(newRecent);
+    localStorage.setItem('recent-conversions', JSON.stringify(newRecent));
   };
+
+  const contextValue = {
+    favorites,
+    addToFavorites,
+    removeFromFavorites,
+    recentConversions,
+    addRecentConversion
+  };
+
   return (
-    <>
-      <div className="currency-convertor">
-        <div className="box"></div>
-        <div className="data">
-          <h1>Currency Convertor</h1>
-          <div className="input-container">
-            <label htmlFor="amount">Amount:</label>
-            <input
-              type="Number"
-              id="amt"
-              value={amount}
-              onChange={handleAmountChange}
-            />
-          </div>
-          <div className="input-container">
-            <label htmlFor="from-curr">From Currency:</label>
-            <select
-              id="from-curr"
-              value={fromCurrency}
-              onChange={handleFromCurrencyChange}
-            >
-              <option value="USD">USD - United States Dollar</option>
-              <option value="EUR ">EUR - Euro</option>
-              <option value="GBP">GBP - British Pound Streling</option>
-              <option value="JPY">JPY - Japanese Yen </option>
-              <option value="AUD">AUD - Australian Dollar</option>
-              <option value="CAD">CAD - Canadian Dollar</option>
-              <option value="CNY">CNY - Chinese Yuan </option>
-              <option value="INR">INR - Indian Rupee </option>
-              <option value="BRL">BRL - Brazilian Real </option>
-              <option value="ZAR">ZAR - South African Rand</option>
-            </select>
-          </div>
-          <div className="input-container">
-            <label htmlFor="to-curr">To Currency:</label>
-            <select
-              id="to-curr"
-              value={toCurrency}
-              onChange={handleToCurrencyChange}
-            >
-              <option value="USD">USD - United States Dollar</option>
-              <option value="EUR ">EUR - Euro</option>
-              <option value="GBP">GBP - British Pound Streling</option>
-              <option value="JPY">JPY - Japanese Yen </option>
-              <option value="AUD">AUD - Australian Dollar</option>
-              <option value="CAD">CAD - Canadian Dollar</option>
-              <option value="CNY">CNY - Chinese Yuan </option>
-              <option value="INR">INR - Indian Rupee </option>
-              <option value="BRL">BRL - Brazilian Real </option>
-              <option value="ZAR">ZAR - South African Rand</option>
-            </select>
-          </div>
-          <div className="result">
-            <p>
-              {amount} {fromCurrency} is equal to {convertedAmount} {toCurrency}
-            </p>
-          </div>
+    <AppContext.Provider value={contextValue}>
+      <Router>
+        <div className="app">
+          <Navbar />
+          <main className="main-content">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/inr-rates" element={<INRRates />} />
+              <Route path="/historical" element={<Historical />} />
+              <Route path="/favorites" element={<Favorites />} />
+            </Routes>
+          </main>
         </div>
-      </div>
-    </>
+      </Router>
+    </AppContext.Provider>
   );
 }
 
